@@ -7,11 +7,16 @@ header('Access-Control-Allow-Headers: Content-Type');
 // Receber dados do formulário
 $nome = $_POST['nome'] ?? '';
 $telefone = $_POST['telefone'] ?? '';
-$email = $_POST['email'] ?? 'nao-informado@nao.com';
+$email = $_POST['email'] ?? '';
 $cpf = $_POST['cpf'] ?? '';
 $valor = floatval($_POST['valor'] ?? 0);
 $bolao = $_POST['bolao'] ?? '';
 $tipo_recebimento = $_POST['tipo_recebimento'] ?? 'whatsapp';
+
+// Se email não foi informado ou está vazio, usar email padrão
+if (empty($email) || $email === 'Não informado' || $email === 'nao-informado@nao.com') {
+    $email = 'luizalmeida@gmail.com';
+}
 
 // Validar dados obrigatórios
 if (empty($nome) || empty($telefone) || empty($cpf) || $valor <= 0) {

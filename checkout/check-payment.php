@@ -7,34 +7,75 @@ header('Access-Control-Allow-Headers: Content-Type');
 // Configurações UTMify
 define('UTMIFY_PIXEL_ID', '692bbc5276ee30509ec1a3dd');
 define('UTMIFY_API_ID', '9eiWCeM87Zp8Ldc60KJRNUehJHsIcDtltBXv');
-define('UTMIFY_API_URL', 'https://api.utmify.com.br/v1/events');
+define('UTMIFY_API_URL', 'https://tracking.utmify.com.br/tracking/v1/events');
+
+// Função para obter IP do cliente
+function obterIP() {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+        $ip = trim($ips[0]);
+    }
+    return $ip;
+}
+
+// Função para formatar parâmetros UTM como query string
+function formatarParametrosUTM($parametrosUTM) {
+    if (empty($parametrosUTM)) {
+        return '';
+    }
+    return '?' . http_build_query($parametrosUTM);
+}
 
 // Função para enviar evento de conversão para UTMify
-function enviarEventoUTMify($evento, $valor, $parametrosUTM = []) {
+function enviarEventoUTMify($tipoEvento, $valor, $parametrosUTM = [], $dadosCliente = []) {
     try {
-        // Preparar dados do evento
-        $dadosEvento = [
-            'pixel_id' => UTMIFY_PIXEL_ID,
-            'api_id' => UTMIFY_API_ID,
-            'event' => $evento,
-            'value' => $valor,
-            'currency' => 'BRL',
-            'timestamp' => time()
+        // Obter IP
+        $ip = obterIP();
+        
+        // Formatar parâmetros UTM como query string
+        $parameters = formatarParametrosUTM($parametrosUTM);
+        
+        // Preparar objeto lead conforme estrutura da UTMify
+        $lead = [
+            'pixelId' => UTMIFY_PIXEL_ID,
+            'userAgent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            'ip' => $ip,
+            'ipv6' => null,
+            'parameters' => $parameters,
+            'fbc' => null,
+            'fbp' => null,
         ];
         
-        // Adicionar parâmetros UTM
-        if (!empty($parametrosUTM)) {
-            $dadosEvento['utm_params'] = $parametrosUTM;
+        // Adicionar dados do cliente se disponíveis
+        if (!empty($dadosCliente['email'])) {
+            $lead['email'] = $dadosCliente['email'];
+        }
+        if (!empty($dadosCliente['firstName'])) {
+            $lead['firstName'] = $dadosCliente['firstName'];
+        }
+        if (!empty($dadosCliente['lastName'])) {
+            $lead['lastName'] = $dadosCliente['lastName'];
+        }
+        if (!empty($dadosCliente['phone'])) {
+            $lead['phone'] = $dadosCliente['phone'];
         }
         
-        // Adicionar informações adicionais
-        $dadosEvento['ip'] = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-        if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $dadosEvento['ip'] = $_SERVER['HTTP_X_FORWARDED_FOR'];
+        // Extrair fbclid dos parâmetros UTM
+        if (isset($parametrosUTM['fbclid']) && !empty($parametrosUTM['fbclid'])) {
+            $timestamp = time();
+            $lead['fbc'] = "fb.0.{$timestamp}.{$parametrosUTM['fbclid']}";
         }
         
-        $dadosEvento['user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $dadosEvento['referer'] = $_SERVER['HTTP_REFERER'] ?? '';
+        // Preparar dados do evento conforme estrutura da UTMify
+        $dadosEvento = [
+            'type' => $tipoEvento,
+            'lead' => $lead,
+            'event' => [
+                'sourceUrl' => $_SERVER['HTTP_REFERER'] ?? '',
+                'pageTitle' => 'Pagamento Confirmado - Ebook Isca Digital'
+            ]
+        ];
         
         // Enviar requisição para UTMify (assíncrono, não bloqueia)
         $ch = curl_init(UTMIFY_API_URL);
@@ -46,12 +87,15 @@ function enviarEventoUTMify($evento, $valor, $parametrosUTM = []) {
                 'Content-Type: application/json',
                 'User-Agent: BolaoApp/1.0'
             ],
-            CURLOPT_TIMEOUT => 2,
-            CURLOPT_CONNECTTIMEOUT => 1
+            CURLOPT_TIMEOUT => 3,
+            CURLOPT_CONNECTTIMEOUT => 2
         ]);
         
         curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        
+        error_log("UTMify evento enviado: {$tipoEvento} - HTTP {$httpCode}");
         
         return true;
     } catch (Exception $e) {
@@ -125,7 +169,7 @@ if ($httpCode === 200 && isset($responseData['data'])) {
         }
         
         // Enviar evento de pagamento confirmado
-        enviarEventoUTMify('payment_confirmed', $valor, $parametrosUTM);
+        enviarEventoUTMify('Purchase', $valor, $parametrosUTM);
     }
     
     echo json_encode([

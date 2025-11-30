@@ -499,6 +499,30 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
                 formData.append('valor', dadosUrl.valor || '0');
                 formData.append('bolao', dadosUrl.bolao || '');
                 formData.append('tipo_recebimento', dadosUrl.tipo_recebimento || 'whatsapp');
+                
+                // Capturar e enviar parâmetros UTM para o backend
+                const parametrosUTM = [
+                    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+                    'xcod', 'sck', 'click_id', 'fbclid', 'gclid', 'msclkid', 'ttclid',
+                    'src', 'source', 'medium', 'campaign', 'content', 'term',
+                    'ref', 'referrer', 'affiliate', 'partner', 'promo', 'coupon',
+                    'subid', 'subid1', 'subid2', 'subid3', 'subid4', 'subid5'
+                ];
+                
+                parametrosUTM.forEach(param => {
+                    const valor = urlParams.get(param);
+                    if (valor) {
+                        formData.append(param, valor);
+                    }
+                });
+                
+                // Enviar todos os outros parâmetros da URL também
+                urlParams.forEach((value, key) => {
+                    if (!parametrosUTM.includes(key) && 
+                        !['nome', 'telefone', 'email', 'cpf', 'valor', 'bolao', 'tipo_recebimento'].includes(key)) {
+                        formData.append(key, value);
+                    }
+                });
 
                 // Enviar para o PHP
                 const response = await fetch('gerar_pix.php', {

@@ -1,0 +1,28 @@
+# Habilitar rewrite engine
+RewriteEngine On
+
+# Redirecionar para index.html se o arquivo não existir
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/api\.php
+RewriteCond %{REQUEST_URI} !^/cpf_api\.php
+RewriteCond %{REQUEST_URI} !^/webhook\.php
+RewriteCond %{REQUEST_URI} !^/status\.php
+RewriteCond %{REQUEST_URI} !^/debug\.php
+RewriteRule ^(.*)$ index.html [L,QSA]
+
+# Headers de segurança
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Configurações PHP
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+</IfModule>
+

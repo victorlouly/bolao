@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: bolao-app
+    ports:
+      - "80:80"
+    volumes:
+      - ./orders.json:/var/www/html/orders.json
+      - ./keys.env:/var/www/html/keys.env
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    restart: unless-stopped
+    networks:
+      - bolao-network
+
+networks:
+  bolao-network:
+    driver: bridge
+

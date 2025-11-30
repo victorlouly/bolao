@@ -1,0 +1,25 @@
+# Arquivos de configuração sensíveis
+keys.env
+orders.json
+
+# Logs
+*.log
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+.docker/
+
+# Temporários
+*.tmp
+*.bak
+*~
+

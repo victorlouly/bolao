@@ -537,8 +537,11 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
                 const data = await response.json();
 
                 if (data.success) {
-                    // Salvar transaction_id
+                    // Salvar transaction_id e external_ref
                     localStorage.setItem('transaction_id', data.transaction_id);
+                    if (data.external_ref) {
+                        localStorage.setItem('external_ref', data.external_ref);
+                    }
 
                     // Evento de conversão Facebook Pixel
                     if (typeof fbq !== 'undefined') {

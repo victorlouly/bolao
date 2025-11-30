@@ -6,8 +6,8 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 // Configurações UTMify
 define('UTMIFY_PIXEL_ID', '692bbc5276ee30509ec1a3dd');
-define('UTMIFY_API_ID', '9eiWCeM87Zp8Ldc60KJRNUehJHsIcDtltBXv');
-define('UTMIFY_API_URL', 'https://tracking.utmify.com.br/tracking/v1/events');
+define('UTMIFY_API_KEY', '9eiWCeM87Zp8Ldc60KJRNUehJHsIcDtltBXv');
+define('UTMIFY_API_URL', 'https://api.utmify.com.br/api-credentials/orders');
 
 // Função para obter IP do cliente
 function obterIP() {
@@ -19,87 +19,95 @@ function obterIP() {
     return $ip;
 }
 
-// Função para formatar parâmetros UTM como query string
-function formatarParametrosUTM($parametrosUTM) {
-    if (empty($parametrosUTM)) {
-        return '';
-    }
-    return '?' . http_build_query($parametrosUTM);
-}
-
-// Função para enviar evento de conversão para UTMify
-function enviarEventoUTMify($tipoEvento, $valor, $parametrosUTM = [], $dadosCliente = []) {
+// Função para atualizar order na UTMify
+function atualizarOrderUtmify($orderId, $valorCentavos, $status, $dadosCliente, $parametrosUTM, $createdAt, $approvedDate = null, $refundedAt = null) {
     try {
-        // Obter IP
-        $ip = obterIP();
-        
-        // Formatar parâmetros UTM como query string
-        $parameters = formatarParametrosUTM($parametrosUTM);
-        
-        // Preparar objeto lead conforme estrutura da UTMify
-        $lead = [
-            'pixelId' => UTMIFY_PIXEL_ID,
-            'userAgent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-            'ip' => $ip,
-            'ipv6' => null,
-            'parameters' => $parameters,
-            'fbc' => null,
-            'fbp' => null,
+        // Preparar dados do cliente
+        $customer = [
+            'name' => $dadosCliente['name'] ?? '',
+            'email' => $dadosCliente['email'] ?? '',
+            'phone' => $dadosCliente['phone'] ?? null,
+            'document' => $dadosCliente['document'] ?? null,
+            'ip' => obterIP()
         ];
         
-        // Adicionar dados do cliente se disponíveis
-        if (!empty($dadosCliente['email'])) {
-            $lead['email'] = $dadosCliente['email'];
-        }
-        if (!empty($dadosCliente['firstName'])) {
-            $lead['firstName'] = $dadosCliente['firstName'];
-        }
-        if (!empty($dadosCliente['lastName'])) {
-            $lead['lastName'] = $dadosCliente['lastName'];
-        }
-        if (!empty($dadosCliente['phone'])) {
-            $lead['phone'] = $dadosCliente['phone'];
-        }
-        
-        // Extrair fbclid dos parâmetros UTM
-        if (isset($parametrosUTM['fbclid']) && !empty($parametrosUTM['fbclid'])) {
-            $timestamp = time();
-            $lead['fbc'] = "fb.0.{$timestamp}.{$parametrosUTM['fbclid']}";
-        }
-        
-        // Preparar dados do evento conforme estrutura da UTMify
-        $dadosEvento = [
-            'type' => $tipoEvento,
-            'lead' => $lead,
-            'event' => [
-                'sourceUrl' => $_SERVER['HTTP_REFERER'] ?? '',
-                'pageTitle' => 'Pagamento Confirmado - Ebook Isca Digital'
+        // Preparar produtos
+        $products = [
+            [
+                'id' => '1',
+                'name' => 'Ebook Isca Digital',
+                'priceInCents' => $valorCentavos,
+                'quantity' => 1,
+                'planId' => null,
+                'planName' => null
             ]
         ];
         
-        // Enviar requisição para UTMify (assíncrono, não bloqueia)
+        // Preparar tracking parameters
+        $trackingParameters = [
+            'src' => $parametrosUTM['src'] ?? $parametrosUTM['utm_source'] ?? null,
+            'sck' => $parametrosUTM['sck'] ?? null,
+            'utm_source' => $parametrosUTM['utm_source'] ?? null,
+            'utm_campaign' => $parametrosUTM['utm_campaign'] ?? null,
+            'utm_medium' => $parametrosUTM['utm_medium'] ?? null,
+            'utm_content' => $parametrosUTM['utm_content'] ?? null,
+            'utm_term' => $parametrosUTM['utm_term'] ?? null
+        ];
+        
+        // Preparar commission
+        $commission = [
+            'totalPriceInCents' => $valorCentavos,
+            'gatewayFeeInCents' => 0,
+            'userCommissionInCents' => $valorCentavos,
+            'currency' => 'BRL'
+        ];
+        
+        // Preparar payload completo
+        $payload = [
+            'orderId' => $orderId,
+            'platform' => 'default_checkout',
+            'paymentMethod' => 'pix',
+            'status' => $status,
+            'createdAt' => $createdAt,
+            'approvedDate' => $approvedDate,
+            'refundedAt' => $refundedAt,
+            'customer' => $customer,
+            'products' => $products,
+            'trackingParameters' => $trackingParameters,
+            'commission' => $commission,
+            'isTest' => false
+        ];
+        
+        // Enviar requisição para UTMify
         $ch = curl_init(UTMIFY_API_URL);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($dadosEvento),
+            CURLOPT_POSTFIELDS => json_encode($payload),
             CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
                 'Content-Type: application/json',
-                'User-Agent: BolaoApp/1.0'
+                'x-api-token: ' . UTMIFY_API_KEY
             ],
-            CURLOPT_TIMEOUT => 3,
-            CURLOPT_CONNECTTIMEOUT => 2
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_CONNECTTIMEOUT => 3
         ]);
         
-        curl_exec($ch);
+        $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
         
-        error_log("UTMify evento enviado: {$tipoEvento} - HTTP {$httpCode}");
+        if ($curlError) {
+            error_log("UTMify curl error: {$curlError}");
+            return false;
+        }
         
-        return true;
+        error_log("UTMify order atualizado: {$orderId} - Status: {$status} - HTTP {$httpCode}");
+        
+        return $httpCode >= 200 && $httpCode < 300;
     } catch (Exception $e) {
-        error_log("Erro ao enviar evento UTMify: " . $e->getMessage());
+        error_log("Erro ao atualizar order UTMify: " . $e->getMessage());
         return false;
     }
 }
@@ -151,15 +159,15 @@ if ($httpCode === 200 && isset($responseData['data'])) {
     $transactionData = $responseData['data'];
     $status = $transactionData['status'] ?? 'WAITING_PAYMENT';
     
-    // Se o pagamento foi confirmado, enviar evento para UTMify
+    // Se o pagamento foi confirmado, atualizar order na UTMify
     if (in_array(strtoupper($status), ['PAID', 'APPROVED', 'CONFIRMED'])) {
-        $valor = isset($transactionData['amount']) ? ($transactionData['amount'] / 100) : 0;
+        $valorCentavos = isset($transactionData['amount']) ? intval($transactionData['amount']) : 0;
         
         // Tentar capturar parâmetros UTM do GET ou do referer
         $parametrosUTM = [];
         $parametrosImportantes = [
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-            'xcod', 'sck', 'click_id', 'fbclid', 'gclid', 'msclkid', 'ttclid'
+            'src', 'sck', 'xcod', 'click_id', 'fbclid', 'gclid', 'msclkid', 'ttclid'
         ];
         
         foreach ($parametrosImportantes as $param) {
@@ -168,8 +176,34 @@ if ($httpCode === 200 && isset($responseData['data'])) {
             }
         }
         
-        // Enviar evento de pagamento confirmado
-        enviarEventoUTMify('Purchase', $valor, $parametrosUTM);
+        // Obter dados do cliente da transação
+        $customerData = $transactionData['customer'] ?? [];
+        $dadosCliente = [
+            'name' => $customerData['name'] ?? '',
+            'email' => $customerData['email'] ?? '',
+            'phone' => $customerData['phone'] ?? null,
+            'document' => isset($customerData['document']['number']) ? $customerData['document']['number'] : null
+        ];
+        
+        // Tentar obter externalRef do localStorage via JavaScript ou usar transactionId
+        // Por enquanto, vamos usar o transactionId como orderId
+        // O ideal seria passar o externalRef via GET ou salvar em banco
+        $orderId = $transactionId; // Pode ser substituído por externalRef se disponível
+        $createdAt = isset($transactionData['createdAt']) ? $transactionData['createdAt'] : date('c');
+        $approvedDate = date('c'); // Data de aprovação = agora
+        $refundedAt = null;
+        
+        // Atualizar order na UTMify com status 'paid'
+        atualizarOrderUtmify(
+            $orderId,
+            $valorCentavos,
+            'paid',
+            $dadosCliente,
+            $parametrosUTM,
+            $createdAt,
+            $approvedDate,
+            $refundedAt
+        );
     }
     
     echo json_encode([

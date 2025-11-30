@@ -704,9 +704,11 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
             }
 
             try {
-                // Mostrar loader
+                // Só mostrar loader se for verificação manual (showAlert = true)
                 const checkingDiv = document.getElementById('checking');
-                if (checkingDiv) checkingDiv.classList.remove('hidden');
+                if (checkingDiv && showAlert) {
+                    checkingDiv.classList.remove('hidden');
+                }
 
                 const res = await fetch(`check-payment.php?id=${transaction_id}`);
                 
@@ -716,7 +718,10 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
                 
                 const data = await res.json();
 
-                if (checkingDiv) checkingDiv.classList.add('hidden');
+                // Só esconder loader se foi mostrado (verificação manual)
+                if (checkingDiv && showAlert) {
+                    checkingDiv.classList.add('hidden');
+                }
 
                 if (data.status === 'paid' || data.status === 'approved' || data.status === 'completed' || data.status === 'WAITING_PAYMENT') {
                     if (data.status === 'paid' || data.status === 'approved' || data.status === 'completed') {

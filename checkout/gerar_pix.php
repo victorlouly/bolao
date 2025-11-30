@@ -175,7 +175,7 @@ $dadosAPI = [
     ],
     'items' => [
         [
-            'title' => 'Bolão da Mega da Virada',
+            'title' => 'Ebook Isca Digital',
             'quantity' => 1,
             'tangible' => false,
             'unitPrice' => $valorCentavos,

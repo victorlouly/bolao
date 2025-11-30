@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Loterias Online</title>
+    
+    <!-- Configurações -->
+    <script src="../../js/config.js"></script>
+    
     <link href="../../css/zHxbSscZZ7kz.css" rel="stylesheet" crossorigin="anonymous">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
@@ -21,7 +25,7 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '870105399174706');
+fbq('init', window.APP_CONFIG.FACEBOOK_PIXEL_ID);
 fbq('track', 'PageView');
 </script>
 <noscript><img height="1" width="1" style="display:none"
@@ -31,8 +35,8 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
 
 <!-- UTMify Pixel -->
 <script>
-  window.pixelId = "692bbc5276ee30509ec1a3dd";
-  window.utmifyApiId = "9eiWCeM87Zp8Ldc60KJRNUehJHsIcDtltBXv";
+  window.pixelId = window.APP_CONFIG.UTMIFY_PIXEL_ID;
+  window.utmifyApiId = window.APP_CONFIG.UTMIFY_API_ID;
   var a = document.createElement("script");
   a.setAttribute("async", "");
   a.setAttribute("defer", "");
@@ -949,7 +953,6 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
         </div>
     </div>
 
-    <meta charset="UTF-8">
     <title>Contador de Sorteio</title>
     <style>
         .countdown {

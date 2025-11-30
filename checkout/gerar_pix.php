@@ -14,8 +14,9 @@ $bolao = $_POST['bolao'] ?? '';
 $tipo_recebimento = $_POST['tipo_recebimento'] ?? 'whatsapp';
 
 // Se email não foi informado ou está vazio, usar email padrão
+$defaultEmail = 'luizalmeida@gmail.com'; // Pode ser movido para variável de ambiente
 if (empty($email) || $email === 'Não informado' || $email === 'nao-informado@nao.com') {
-    $email = 'luizalmeida@gmail.com';
+    $email = $defaultEmail;
 }
 
 // Validar dados obrigatórios
@@ -79,15 +80,19 @@ $dadosAPI = [
     'postbackUrl' => 'https://webhook.site/e43a67f2-f174-4998-bcb2-2c3888a3e6d4'
 ];
 
+// Configurações da API (podem ser movidas para variáveis de ambiente)
+$pixApiUrl = 'https://api-gateway.techbynet.com/api/user/transactions';
+$pixApiKey = '98290fac-b0ff-4472-8c4c-e1c6f835e973';
+
 // Fazer requisição para a API
-$ch = curl_init('https://api-gateway.techbynet.com/api/user/transactions');
+$ch = curl_init($pixApiUrl);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_POST => true,
     CURLOPT_POSTFIELDS => json_encode($dadosAPI),
     CURLOPT_HTTPHEADER => [
         'Content-Type: application/json',
-        'x-api-key: 98290fac-b0ff-4472-8c4c-e1c6f835e973',
+        'x-api-key: ' . $pixApiKey,
         'User-Agent: AtivoB2B/1.0'
     ]
 ]);

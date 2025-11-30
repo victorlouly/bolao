@@ -16,13 +16,17 @@ if (empty($transactionId)) {
     exit;
 }
 
+// Configurações da API (podem ser movidas para variáveis de ambiente)
+$pixApiUrl = 'https://api-gateway.techbynet.com/api/user/transactions';
+$pixApiKey = '98290fac-b0ff-4472-8c4c-e1c6f835e973';
+
 // Fazer requisição para verificar status
-$ch = curl_init("https://api-gateway.techbynet.com/api/user/transactions/{$transactionId}");
+$ch = curl_init("{$pixApiUrl}/{$transactionId}");
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HTTPHEADER => [
         'Content-Type: application/json',
-        'x-api-key: 98290fac-b0ff-4472-8c4c-e1c6f835e973',
+        'x-api-key: ' . $pixApiKey,
         'User-Agent: AtivoB2B/1.0'
     ]
 ]);

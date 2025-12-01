@@ -247,11 +247,12 @@ $dadosAPI = [
     'metadata' => json_encode([
         'bolao' => $bolao,
         'tipo_recebimento' => $tipo_recebimento,
-        'externalRef' => $externalRef
+        'externalRef' => $externalRef,
+        'orderId' => $externalRef // Para o webhook identificar o orderId da UTMify
     ]),
     'installments' => 1,
     'paymentMethod' => 'PIX',
-    'postbackUrl' => 'https://webhook.site/e43a67f2-f174-4998-bcb2-2c3888a3e6d4'
+    'postbackUrl' => 'https://mega.davirada2026.com/webhook.php'
 ];
 
 // Configurações da API (podem ser movidas para variáveis de ambiente)

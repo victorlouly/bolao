@@ -10,6 +10,7 @@ define('BYNET_API_KEY', '98290fac-b0ff-4472-8c4c-e1c6f835e973');
 // Configurações Facebook Pixel / Meta Conversions API
 define('FACEBOOK_PIXEL_ID', '870105399174706');
 define('FACEBOOK_ACCESS_TOKEN', 'EAAI2BQZByeB0BQB1sLt631uZAwpt5ekPY4nso2MC9ZCouZBso0xHkJy1ITmxYLzFDS46oyRReTUYhoQ8WvUAGLpDSRTrwDFWBHOScVwAd1c0xS3ZCag4WVoaZAcNNZC3ZBvdNVbbfkrJ5pWoqW61akt7irslw06MVCZCib0hQMwGJTSxhrkW3VyChcccSLHyY0gZDZD');
+define('FACEBOOK_TEST_EVENT_CODE', 'TEST18863');
 define('FACEBOOK_API_URL', 'https://graph.facebook.com/v18.0/' . FACEBOOK_PIXEL_ID . '/events');
 
 // Receber dados do webhook
@@ -158,7 +159,8 @@ function enviarEventoFacebookPurchase($valorCentavos, $dadosCliente, $eventTime 
                     ]
                 ]
             ],
-            'access_token' => FACEBOOK_ACCESS_TOKEN
+            'access_token' => FACEBOOK_ACCESS_TOKEN,
+            'test_event_code' => FACEBOOK_TEST_EVENT_CODE
         ];
         
         // Enviar requisição para Facebook Conversions API

@@ -180,22 +180,22 @@ function enviarEventoFacebookPurchase($valorCentavos, $dadosCliente, $eventTime 
         curl_close($ch);
         
         if ($curlError) {
-            error_log("Facebook Conversions API curl error: {$curlError}");
-            return false;
+            error_log("Facebook Conversions API curl error (Purchase): {$curlError}");
+            return ['success' => false, 'error' => $curlError];
         }
         
         $responseData = json_decode($response, true);
         
         if ($httpCode >= 200 && $httpCode < 300) {
-            error_log("Facebook Purchase event enviado com sucesso - HTTP {$httpCode}");
-            return true;
+            error_log("Facebook Purchase event enviado com sucesso - HTTP {$httpCode} - Response: " . json_encode($responseData));
+            return ['success' => true, 'http_code' => $httpCode, 'response' => $responseData];
         } else {
-            error_log("Facebook Conversions API error: HTTP {$httpCode} - " . json_encode($responseData));
-            return false;
+            error_log("Facebook Conversions API error (Purchase): HTTP {$httpCode} - " . json_encode($responseData));
+            return ['success' => false, 'http_code' => $httpCode, 'error' => $responseData];
         }
     } catch (Exception $e) {
         error_log("Erro ao enviar evento Facebook Purchase: " . $e->getMessage());
-        return false;
+        return ['success' => false, 'error' => $e->getMessage()];
     }
 }
 

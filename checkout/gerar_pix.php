@@ -132,20 +132,21 @@ function enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $pa
         
         if ($curlError) {
             error_log("Facebook Conversions API curl error (InitiateCheckout): {$curlError}");
-            return false;
+            return ['success' => false, 'error' => $curlError];
         }
         
+        $responseData = json_decode($response, true);
+        
         if ($httpCode >= 200 && $httpCode < 300) {
-            error_log("Facebook InitiateCheckout event enviado com sucesso - HTTP {$httpCode}");
-            return true;
+            error_log("Facebook InitiateCheckout event enviado com sucesso - HTTP {$httpCode} - Response: " . json_encode($responseData));
+            return ['success' => true, 'http_code' => $httpCode, 'response' => $responseData];
         } else {
-            $responseData = json_decode($response, true);
             error_log("Facebook Conversions API error (InitiateCheckout): HTTP {$httpCode} - " . json_encode($responseData));
-            return false;
+            return ['success' => false, 'http_code' => $httpCode, 'error' => $responseData];
         }
     } catch (Exception $e) {
         error_log("Erro ao enviar evento Facebook InitiateCheckout: " . $e->getMessage());
-        return false;
+        return ['success' => false, 'error' => $e->getMessage()];
     }
 }
 

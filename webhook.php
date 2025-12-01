@@ -126,13 +126,25 @@ $dadosCliente = [
     'document' => isset($customer['document']['number']) ? $customer['document']['number'] : null
 ];
 
-// Preparar tracking parameters (vazio por enquanto, pode ser melhorado)
-$parametrosUTM = [];
+// Recuperar parâmetros UTM do metadata
+$parametrosUTM = $metadata['utm_params'] ?? [];
+$fbc = $metadata['fbc'] ?? null;
+$fbp = $metadata['fbp'] ?? null;
+$fbclid = $metadata['fbclid'] ?? null;
+
+// Se não encontrou no metadata, tentar reconstruir fbc do fbclid
+if (!$fbc && $fbclid && isset($transaction['createdAt'])) {
+    $timestamp = strtotime($transaction['createdAt']);
+    $fbc = "fb.0.{$timestamp}.{$fbclid}";
+}
 
 // Função para enviar evento Purchase para Facebook Conversions API
-function enviarEventoFacebookPurchase($valorCentavos, $dadosCliente, $eventTime = null) {
+function enviarEventoFacebookPurchase($valorCentavos, $dadosCliente, $externalRef, $fbc = null, $fbp = null, $eventTime = null) {
     try {
         $eventTime = $eventTime ?? time();
+        
+        // Usar externalRef como base do event_id para deduplicação e vincular com InitiateCheckout
+        $eventId = "purchase_{$externalRef}";
         
         // Preparar dados do evento
         $eventData = [
@@ -140,7 +152,7 @@ function enviarEventoFacebookPurchase($valorCentavos, $dadosCliente, $eventTime 
                 [
                     'event_name' => 'Purchase',
                     'event_time' => $eventTime,
-                    'event_id' => uniqid('purchase_', true), // ID único para deduplicação
+                    'event_id' => $eventId, // ID baseado no externalRef para deduplicação
                     'event_source_url' => 'https://mega.davirada2026.com/checkout/',
                     'action_source' => 'website',
                     'user_data' => [
@@ -148,8 +160,10 @@ function enviarEventoFacebookPurchase($valorCentavos, $dadosCliente, $eventTime 
                         'ph' => !empty($dadosCliente['phone']) ? hash('sha256', preg_replace('/\D/', '', $dadosCliente['phone'])) : null,
                         'fn' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(explode(' ', $dadosCliente['name'])[0])) : null,
                         'ln' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(implode(' ', array_slice(explode(' ', $dadosCliente['name']), 1)))) : null,
-                        'client_ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
-                        'client_user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null
+                        'client_ip_address' => obterIP(),
+                        'client_user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                        'fbc' => $fbc, // Facebook Click ID (recuperado do metadata)
+                        'fbp' => $fbp // Facebook Browser ID (recuperado do metadata)
                     ],
                     'custom_data' => [
                         'currency' => 'BRL',
@@ -332,7 +346,7 @@ if ($utmifyStatus === 'paid' || $utmifyStatus === 'refunded' || $utmifyStatus ==
     // Enviar evento Purchase para Facebook Conversions API apenas quando pagamento for confirmado
     if ($utmifyStatus === 'paid') {
         $eventTime = $paidAt ? strtotime($paidAt) : time();
-        enviarEventoFacebookPurchase($amount, $dadosCliente, $eventTime);
+        enviarEventoFacebookPurchase($amount, $dadosCliente, $orderId, $fbc, $fbp, $eventTime);
     }
 }
 

@@ -71,8 +71,16 @@ function obterIP() {
     return $ip;
 }
 
+// Função para obter fbp (Facebook Browser ID) do cookie
+function obterFbp() {
+    if (isset($_COOKIE['_fbp'])) {
+        return $_COOKIE['_fbp'];
+    }
+    return null;
+}
+
 // Função para enviar evento InitiateCheckout para Facebook Conversions API
-function enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $parametrosUTM) {
+function enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $parametrosUTM, $externalRef) {
     try {
         $eventTime = time();
         
@@ -83,13 +91,19 @@ function enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $pa
             $fbc = "fb.0.{$timestamp}.{$parametrosUTM['fbclid']}";
         }
         
+        // Obter fbp do cookie
+        $fbp = obterFbp();
+        
+        // Usar externalRef como base do event_id para deduplicação
+        $eventId = "ic_{$externalRef}";
+        
         // Preparar dados do evento
         $eventData = [
             'data' => [
                 [
                     'event_name' => 'InitiateCheckout',
                     'event_time' => $eventTime,
-                    'event_id' => uniqid('initiate_checkout_', true), // ID único para deduplicação
+                    'event_id' => $eventId, // ID baseado no externalRef para deduplicação
                     'event_source_url' => $_SERVER['HTTP_REFERER'] ?? 'https://mega.davirada2026.com/checkout/',
                     'action_source' => 'website',
                     'user_data' => [
@@ -100,7 +114,7 @@ function enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $pa
                         'client_ip_address' => obterIP(),
                         'client_user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
                         'fbc' => $fbc, // Facebook Click ID
-                        'fbp' => null // Facebook Browser ID (pode ser obtido de cookies se necessário)
+                        'fbp' => $fbp // Facebook Browser ID
                     ],
                     'custom_data' => [
                         'currency' => 'BRL',
@@ -305,6 +319,9 @@ if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
 $cpfLimpo = preg_replace('/\D/', '', $cpf);
 $telefoneLimpo = preg_replace('/\D/', '', $telefone);
 
+// Capturar parâmetros UTM antes de criar o metadata
+$parametrosUTM = capturarParametrosUTM();
+
 // Preparar dados para a API
 $dadosAPI = [
     'ip' => $ip,
@@ -335,7 +352,12 @@ $dadosAPI = [
         'bolao' => $bolao,
         'tipo_recebimento' => $tipo_recebimento,
         'externalRef' => $externalRef,
-        'orderId' => $externalRef // Para o webhook identificar o orderId da UTMify
+        'orderId' => $externalRef, // Para o webhook identificar o orderId da UTMify
+        // Salvar parâmetros UTM para recuperar no webhook
+        'utm_params' => $parametrosUTM,
+        'fbc' => isset($parametrosUTM['fbclid']) && !empty($parametrosUTM['fbclid']) ? "fb.0." . time() . ".{$parametrosUTM['fbclid']}" : null,
+        'fbp' => obterFbp(),
+        'fbclid' => $parametrosUTM['fbclid'] ?? null
     ]),
     'installments' => 1,
     'paymentMethod' => 'PIX',
@@ -389,9 +411,6 @@ if ($httpCode === 200 && isset($responseData['data'])) {
         exit;
     }
     
-    // Capturar parâmetros UTM e criar order na UTMify
-    $parametrosUTM = capturarParametrosUTM();
-    
     // Preparar dados do cliente
     $dadosCliente = [
         'name' => $nome,
@@ -413,7 +432,7 @@ if ($httpCode === 200 && isset($responseData['data'])) {
     );
     
     // Enviar evento InitiateCheckout para Facebook Conversions API
-    enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $parametrosUTM);
+    enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $parametrosUTM, $externalRef);
     
     echo json_encode([
         'success' => true,

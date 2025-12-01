@@ -1,9 +1,11 @@
 <?php
 header('Content-Type: application/json');
 
-// Configurações UTMify
+// Configurações
 define('UTMIFY_API_KEY', '9eiWCeM87Zp8Ldc60KJRNUehJHsIcDtltBXv');
 define('UTMIFY_API_URL', 'https://api.utmify.com.br/api-credentials/orders');
+define('BYNET_API_URL', 'https://api-gateway.techbynet.com/api/user/transactions');
+define('BYNET_API_KEY', '98290fac-b0ff-4472-8c4c-e1c6f835e973');
 
 // Receber dados do webhook
 $input = file_get_contents('php://input');
@@ -16,33 +18,77 @@ if (isset($_GET['debug'])) {
 $data = json_decode($input, true);
 
 // Validar se recebeu dados
-if (!$data) {
+if (!$data || !isset($data['data'])) {
     http_response_code(400);
-    echo json_encode(['error' => 'JSON inválido', 'received' => substr($input, 0, 200)]);
+    echo json_encode(['error' => 'Dados inválidos', 'received' => substr($input, 0, 200)]);
     exit;
 }
 
-// A bynet pode enviar diretamente em 'data' ou na raiz
-$webhookData = $data['data'] ?? $data;
+// Extrair informações do webhook
+$objectId = $data['objectId'] ?? null; // transaction ID
+$webhookData = $data['data'];
+$status = $webhookData['status'] ?? null;
+$paidAt = $webhookData['paidAt'] ?? null;
+$endToEndId = $webhookData['endToEndId'] ?? null;
+
+if (!$objectId || !$status) {
+    http_response_code(400);
+    echo json_encode(['error' => 'objectId ou status não encontrado']);
+    exit;
+}
+
+// Buscar dados completos da transação na API da bynet
+$ch = curl_init(BYNET_API_URL . '/' . $objectId);
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => [
+        'Content-Type: application/json',
+        'x-api-key: ' . BYNET_API_KEY,
+        'User-Agent: BolaoApp/1.0'
+    ],
+    CURLOPT_TIMEOUT => 5,
+    CURLOPT_CONNECTTIMEOUT => 3
+]);
+
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$curlError = curl_error($ch);
+curl_close($ch);
+
+if ($curlError || $httpCode !== 200) {
+    error_log("Erro ao buscar transação {$objectId}: {$curlError} - HTTP {$httpCode}");
+    http_response_code(500);
+    echo json_encode(['error' => 'Erro ao buscar dados da transação']);
+    exit;
+}
+
+$transactionData = json_decode($response, true);
+
+if (!isset($transactionData['data'])) {
+    error_log("Transação {$objectId} não encontrada na resposta");
+    http_response_code(404);
+    echo json_encode(['error' => 'Transação não encontrada']);
+    exit;
+}
+
+$transaction = $transactionData['data'];
 
 // Extrair informações da transação
-$transactionId = $webhookData['id'] ?? null;
-$status = $webhookData['status'] ?? null;
-$amount = isset($webhookData['amount']) ? intval($webhookData['amount']) : 0;
-$customer = $webhookData['customer'] ?? [];
+$amount = isset($transaction['amount']) ? intval($transaction['amount']) : 0;
+$customer = $transaction['customer'] ?? [];
 $metadata = [];
 
 // Tentar decodificar metadata se for string
-if (isset($webhookData['metadata'])) {
-    if (is_string($webhookData['metadata'])) {
-        $metadata = json_decode($webhookData['metadata'], true) ?? [];
+if (isset($transaction['metadata'])) {
+    if (is_string($transaction['metadata'])) {
+        $metadata = json_decode($transaction['metadata'], true) ?? [];
     } else {
-        $metadata = $webhookData['metadata'];
+        $metadata = $transaction['metadata'];
     }
 }
 
 // Extrair externalRef do metadata (usado como orderId na UTMify)
-$orderId = $metadata['orderId'] ?? $metadata['externalRef'] ?? $transactionId;
+$orderId = $metadata['orderId'] ?? $metadata['externalRef'] ?? $objectId;
 
 // Mapear status da bynet para status da UTMify
 $utmifyStatus = 'waiting_payment';
@@ -51,10 +97,17 @@ $refundedAt = null;
 
 if (in_array(strtolower($status), ['paid', 'authorized'])) {
     $utmifyStatus = 'paid';
-    $approvedDate = date('c');
+    // Usar paidAt do webhook se disponível, senão usar data atual
+    $approvedDate = $paidAt ? date('c', strtotime($paidAt)) : date('c');
 } elseif (in_array(strtolower($status), ['refunded', 'canceled', 'chargedback'])) {
     $utmifyStatus = 'refunded';
-    $refundedAt = date('c');
+    // Verificar se há refunds no webhook
+    if (isset($webhookData['refunds']) && !empty($webhookData['refunds'])) {
+        $firstRefund = $webhookData['refunds'][0];
+        $refundedAt = isset($firstRefund['createdAt']) ? date('c', strtotime($firstRefund['createdAt'])) : date('c');
+    } else {
+        $refundedAt = date('c');
+    }
 } elseif (in_array(strtolower($status), ['refused'])) {
     $utmifyStatus = 'refused';
 }
@@ -176,9 +229,15 @@ function atualizarOrderUtmify($orderId, $valorCentavos, $status, $dadosCliente, 
     }
 }
 
-// Atualizar order na UTMify se o status mudou para paid/refunded
+// Atualizar order na UTMify se o status mudou para paid/refunded/refused
 if ($utmifyStatus === 'paid' || $utmifyStatus === 'refunded' || $utmifyStatus === 'refused') {
-    $createdAt = isset($webhookData['createdAt']) ? $webhookData['createdAt'] : date('c');
+    // Usar createdAt da transação ou data atual
+    $createdAt = isset($transaction['createdAt']) ? $transaction['createdAt'] : date('c');
+    
+    // Converter para formato ISO se necessário
+    if ($createdAt && !strpos($createdAt, 'T')) {
+        $createdAt = date('c', strtotime($createdAt));
+    }
     
     atualizarOrderUtmify(
         $orderId,

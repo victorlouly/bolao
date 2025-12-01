@@ -9,6 +9,11 @@ define('UTMIFY_PIXEL_ID', '692bbc5276ee30509ec1a3dd');
 define('UTMIFY_API_KEY', '9eiWCeM87Zp8Ldc60KJRNUehJHsIcDtltBXv');
 define('UTMIFY_API_URL', 'https://api.utmify.com.br/api-credentials/orders');
 
+// Configurações Facebook Pixel / Meta Conversions API
+define('FACEBOOK_PIXEL_ID', '870105399174706');
+define('FACEBOOK_ACCESS_TOKEN', 'EAAI2BQZByeB0BQB1sLt631uZAwpt5ekPY4nso2MC9ZCouZBso0xHkJy1ITmxYLzFDS46oyRReTUYhoQ8WvUAGLpDSRTrwDFWBHOScVwAd1c0xS3ZCag4WVoaZAcNNZC3ZBvdNVbbfkrJ5pWoqW61akt7irslw06MVCZCib0hQMwGJTSxhrkW3VyChcccSLHyY0gZDZD');
+define('FACEBOOK_API_URL', 'https://graph.facebook.com/v18.0/' . FACEBOOK_PIXEL_ID . '/events');
+
 // Receber dados do formulário
 $nome = $_POST['nome'] ?? '';
 $telefone = $_POST['telefone'] ?? '';
@@ -63,6 +68,85 @@ function obterIP() {
         $ip = trim($ips[0]);
     }
     return $ip;
+}
+
+// Função para enviar evento InitiateCheckout para Facebook Conversions API
+function enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $parametrosUTM) {
+    try {
+        $eventTime = time();
+        
+        // Preparar fbc (Facebook Click ID) se fbclid estiver presente
+        $fbc = null;
+        if (isset($parametrosUTM['fbclid']) && !empty($parametrosUTM['fbclid'])) {
+            $timestamp = $eventTime;
+            $fbc = "fb.0.{$timestamp}.{$parametrosUTM['fbclid']}";
+        }
+        
+        // Preparar dados do evento
+        $eventData = [
+            'data' => [
+                [
+                    'event_name' => 'InitiateCheckout',
+                    'event_time' => $eventTime,
+                    'event_id' => uniqid('initiate_checkout_', true), // ID único para deduplicação
+                    'event_source_url' => $_SERVER['HTTP_REFERER'] ?? 'https://mega.davirada2026.com/checkout/',
+                    'action_source' => 'website',
+                    'user_data' => [
+                        'em' => !empty($dadosCliente['email']) ? hash('sha256', strtolower(trim($dadosCliente['email']))) : null,
+                        'ph' => !empty($dadosCliente['phone']) ? hash('sha256', preg_replace('/\D/', '', $dadosCliente['phone'])) : null,
+                        'fn' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(explode(' ', $dadosCliente['name'])[0])) : null,
+                        'ln' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(implode(' ', array_slice(explode(' ', $dadosCliente['name']), 1)))) : null,
+                        'client_ip_address' => obterIP(),
+                        'client_user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                        'fbc' => $fbc, // Facebook Click ID
+                        'fbp' => null // Facebook Browser ID (pode ser obtido de cookies se necessário)
+                    ],
+                    'custom_data' => [
+                        'currency' => 'BRL',
+                        'value' => $valorCentavos / 100, // Converter centavos para reais
+                        'content_name' => 'Ebook Isca Digital',
+                        'content_category' => 'Digital Product'
+                    ]
+                ]
+            ],
+            'access_token' => FACEBOOK_ACCESS_TOKEN
+        ];
+        
+        // Enviar requisição para Facebook Conversions API (assíncrono, não bloqueia)
+        $ch = curl_init(FACEBOOK_API_URL);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($eventData),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json'
+            ],
+            CURLOPT_TIMEOUT => 3,
+            CURLOPT_CONNECTTIMEOUT => 2
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        
+        if ($curlError) {
+            error_log("Facebook Conversions API curl error (InitiateCheckout): {$curlError}");
+            return false;
+        }
+        
+        if ($httpCode >= 200 && $httpCode < 300) {
+            error_log("Facebook InitiateCheckout event enviado com sucesso - HTTP {$httpCode}");
+            return true;
+        } else {
+            $responseData = json_decode($response, true);
+            error_log("Facebook Conversions API error (InitiateCheckout): HTTP {$httpCode} - " . json_encode($responseData));
+            return false;
+        }
+    } catch (Exception $e) {
+        error_log("Erro ao enviar evento Facebook InitiateCheckout: " . $e->getMessage());
+        return false;
+    }
 }
 
 // Função para criar order na UTMify
@@ -324,6 +408,9 @@ if ($httpCode === 200 && isset($responseData['data'])) {
         null, // approvedDate
         null  // refundedAt
     );
+    
+    // Enviar evento InitiateCheckout para Facebook Conversions API
+    enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $parametrosUTM);
     
     echo json_encode([
         'success' => true,

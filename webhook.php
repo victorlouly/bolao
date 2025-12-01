@@ -7,6 +7,11 @@ define('UTMIFY_API_URL', 'https://api.utmify.com.br/api-credentials/orders');
 define('BYNET_API_URL', 'https://api-gateway.techbynet.com/api/user/transactions');
 define('BYNET_API_KEY', '98290fac-b0ff-4472-8c4c-e1c6f835e973');
 
+// Configurações Facebook Pixel / Meta Conversions API
+define('FACEBOOK_PIXEL_ID', '870105399174706');
+define('FACEBOOK_ACCESS_TOKEN', 'EAAI2BQZByeB0BQB1sLt631uZAwpt5ekPY4nso2MC9ZCouZBso0xHkJy1ITmxYLzFDS46oyRReTUYhoQ8WvUAGLpDSRTrwDFWBHOScVwAd1c0xS3ZCag4WVoaZAcNNZC3ZBvdNVbbfkrJ5pWoqW61akt7irslw06MVCZCib0hQMwGJTSxhrkW3VyChcccSLHyY0gZDZD');
+define('FACEBOOK_API_URL', 'https://graph.facebook.com/v18.0/' . FACEBOOK_PIXEL_ID . '/events');
+
 // Receber dados do webhook
 $input = file_get_contents('php://input');
 
@@ -122,6 +127,77 @@ $dadosCliente = [
 
 // Preparar tracking parameters (vazio por enquanto, pode ser melhorado)
 $parametrosUTM = [];
+
+// Função para enviar evento Purchase para Facebook Conversions API
+function enviarEventoFacebookPurchase($valorCentavos, $dadosCliente, $eventTime = null) {
+    try {
+        $eventTime = $eventTime ?? time();
+        
+        // Preparar dados do evento
+        $eventData = [
+            'data' => [
+                [
+                    'event_name' => 'Purchase',
+                    'event_time' => $eventTime,
+                    'event_id' => uniqid('purchase_', true), // ID único para deduplicação
+                    'event_source_url' => 'https://mega.davirada2026.com/checkout/',
+                    'action_source' => 'website',
+                    'user_data' => [
+                        'em' => !empty($dadosCliente['email']) ? hash('sha256', strtolower(trim($dadosCliente['email']))) : null,
+                        'ph' => !empty($dadosCliente['phone']) ? hash('sha256', preg_replace('/\D/', '', $dadosCliente['phone'])) : null,
+                        'fn' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(explode(' ', $dadosCliente['name'])[0])) : null,
+                        'ln' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(implode(' ', array_slice(explode(' ', $dadosCliente['name']), 1)))) : null,
+                        'client_ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+                        'client_user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null
+                    ],
+                    'custom_data' => [
+                        'currency' => 'BRL',
+                        'value' => $valorCentavos / 100, // Converter centavos para reais
+                        'content_name' => 'Ebook Isca Digital',
+                        'content_category' => 'Digital Product'
+                    ]
+                ]
+            ],
+            'access_token' => FACEBOOK_ACCESS_TOKEN
+        ];
+        
+        // Enviar requisição para Facebook Conversions API
+        $ch = curl_init(FACEBOOK_API_URL);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($eventData),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json'
+            ],
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_CONNECTTIMEOUT => 3
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        
+        if ($curlError) {
+            error_log("Facebook Conversions API curl error: {$curlError}");
+            return false;
+        }
+        
+        $responseData = json_decode($response, true);
+        
+        if ($httpCode >= 200 && $httpCode < 300) {
+            error_log("Facebook Purchase event enviado com sucesso - HTTP {$httpCode}");
+            return true;
+        } else {
+            error_log("Facebook Conversions API error: HTTP {$httpCode} - " . json_encode($responseData));
+            return false;
+        }
+    } catch (Exception $e) {
+        error_log("Erro ao enviar evento Facebook Purchase: " . $e->getMessage());
+        return false;
+    }
+}
 
 // Função para obter IP do cliente
 function obterIP() {
@@ -239,6 +315,7 @@ if ($utmifyStatus === 'paid' || $utmifyStatus === 'refunded' || $utmifyStatus ==
         $createdAt = date('c', strtotime($createdAt));
     }
     
+    // Atualizar order na UTMify
     atualizarOrderUtmify(
         $orderId,
         $amount,
@@ -249,6 +326,12 @@ if ($utmifyStatus === 'paid' || $utmifyStatus === 'refunded' || $utmifyStatus ==
         $approvedDate,
         $refundedAt
     );
+    
+    // Enviar evento Purchase para Facebook Conversions API apenas quando pagamento for confirmado
+    if ($utmifyStatus === 'paid') {
+        $eventTime = $paidAt ? strtotime($paidAt) : time();
+        enviarEventoFacebookPurchase($amount, $dadosCliente, $eventTime);
+    }
 }
 
 // Responder com sucesso

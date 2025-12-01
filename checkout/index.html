@@ -36,6 +36,15 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
   document.head.appendChild(a);
 </script>
 <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" data-utmify-prevent-xcod-sck="" data-utmify-prevent-subids="" async="" defer=""></script>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-M01BCJ6HPV"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-M01BCJ6HPV');
+</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pagamento via PIX - Loterias Online</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -543,17 +552,14 @@ src="https://www.facebook.com/tr?id=870105399174706&ev=PageView&noscript=1"
                         localStorage.setItem('external_ref', data.external_ref);
                     }
 
-                    // Evento de conversão Facebook Pixel
+                    // Evento de conversão Facebook Pixel - InitiateCheckout
+                    // O evento Purchase será enviado apenas quando o pagamento for confirmado via webhook
                     if (typeof fbq !== 'undefined') {
                         fbq('track', 'InitiateCheckout', {
                             value: parseFloat(dadosUrl.valor || 0),
-                            currency: 'BRL'
-                        });
-                        fbq('track', 'Purchase', {
-                            value: parseFloat(dadosUrl.valor || 0),
                             currency: 'BRL',
-                            content_name: 'Bolão Mega da Virada',
-                            content_category: 'Lottery'
+                            content_name: 'Ebook Isca Digital',
+                            content_category: 'Digital Product'
                         });
                     }
 

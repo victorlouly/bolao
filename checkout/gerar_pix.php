@@ -23,6 +23,8 @@ $cpf = $_POST['cpf'] ?? '';
 $valor = floatval($_POST['valor'] ?? 0);
 $bolao = $_POST['bolao'] ?? '';
 $tipo_recebimento = $_POST['tipo_recebimento'] ?? 'whatsapp';
+$cidade = $_POST['cidade'] ?? '';
+$estado = $_POST['estado'] ?? '';
 
 // Função para capturar parâmetros UTM do POST ou da URL de referência
 function capturarParametrosUTM() {
@@ -109,8 +111,10 @@ function enviarEventoFacebookInitiateCheckout($valorCentavos, $dadosCliente, $pa
                     'user_data' => [
                         'em' => !empty($dadosCliente['email']) ? hash('sha256', strtolower(trim($dadosCliente['email']))) : null,
                         'ph' => !empty($dadosCliente['phone']) ? hash('sha256', preg_replace('/\D/', '', $dadosCliente['phone'])) : null,
-                        'fn' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(explode(' ', $dadosCliente['name'])[0])) : null,
-                        'ln' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(implode(' ', array_slice(explode(' ', $dadosCliente['name']), 1)))) : null,
+                        'fn' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(trim(explode(' ', $dadosCliente['name'])[0]))) : null,
+                        'ln' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(trim(implode(' ', array_slice(explode(' ', $dadosCliente['name']), 1))))) : null,
+                        'ct' => !empty($dadosCliente['city']) ? hash('sha256', strtolower(trim($dadosCliente['city']))) : null,
+                        'st' => !empty($dadosCliente['state']) ? hash('sha256', strtolower(trim($dadosCliente['state']))) : null,
                         'client_ip_address' => obterIP(),
                         'client_user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
                         'fbc' => $fbc, // Facebook Click ID
@@ -357,7 +361,9 @@ $dadosAPI = [
         'utm_params' => $parametrosUTM,
         'fbc' => isset($parametrosUTM['fbclid']) && !empty($parametrosUTM['fbclid']) ? "fb.0." . time() . ".{$parametrosUTM['fbclid']}" : null,
         'fbp' => obterFbp(),
-        'fbclid' => $parametrosUTM['fbclid'] ?? null
+        'fbclid' => $parametrosUTM['fbclid'] ?? null,
+        'city' => $cidade,
+        'state' => $estado
     ]),
     'installments' => 1,
     'paymentMethod' => 'PIX',
@@ -416,7 +422,9 @@ if ($httpCode === 200 && isset($responseData['data'])) {
         'name' => $nome,
         'email' => $email,
         'phone' => $telefoneLimpo,
-        'document' => $cpfLimpo
+        'document' => $cpfLimpo,
+        'city' => $cidade,
+        'state' => $estado
     ];
     
     // Criar order na UTMify com status waiting_payment

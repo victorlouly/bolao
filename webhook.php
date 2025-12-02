@@ -118,12 +118,14 @@ if (in_array(strtolower($status), ['paid', 'authorized'])) {
     $utmifyStatus = 'refused';
 }
 
-// Preparar dados do cliente
+// Preparar dados do cliente (incluindo cidade e estado do metadata)
 $dadosCliente = [
     'name' => $customer['name'] ?? '',
     'email' => $customer['email'] ?? '',
     'phone' => $customer['phone'] ?? null,
-    'document' => isset($customer['document']['number']) ? $customer['document']['number'] : null
+    'document' => isset($customer['document']['number']) ? $customer['document']['number'] : null,
+    'city' => $metadata['city'] ?? $customer['city'] ?? null,
+    'state' => $metadata['state'] ?? $customer['state'] ?? null
 ];
 
 // Recuperar parâmetros UTM do metadata
@@ -158,8 +160,10 @@ function enviarEventoFacebookPurchase($valorCentavos, $dadosCliente, $externalRe
                     'user_data' => [
                         'em' => !empty($dadosCliente['email']) ? hash('sha256', strtolower(trim($dadosCliente['email']))) : null,
                         'ph' => !empty($dadosCliente['phone']) ? hash('sha256', preg_replace('/\D/', '', $dadosCliente['phone'])) : null,
-                        'fn' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(explode(' ', $dadosCliente['name'])[0])) : null,
-                        'ln' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(implode(' ', array_slice(explode(' ', $dadosCliente['name']), 1)))) : null,
+                        'fn' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(trim(explode(' ', $dadosCliente['name'])[0]))) : null,
+                        'ln' => !empty($dadosCliente['name']) ? hash('sha256', strtolower(trim(implode(' ', array_slice(explode(' ', $dadosCliente['name']), 1))))) : null,
+                        'ct' => !empty($dadosCliente['city']) ? hash('sha256', strtolower(trim($dadosCliente['city']))) : null,
+                        'st' => !empty($dadosCliente['state']) ? hash('sha256', strtolower(trim($dadosCliente['state']))) : null,
                         'client_ip_address' => obterIP(),
                         'client_user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
                         'fbc' => $fbc, // Facebook Click ID (recuperado do metadata)
